@@ -131,7 +131,7 @@ Question: {question}
                 result = await response.json()
                 return result["choices"][0]["message"]["content"]
             except (KeyError, IndexError, TypeError):
-                return "I don't have enough information.\nSources: [\n{\"url\": \"https://tds.s-anand.net\", \"text\": \"Default fallback source\"}\n]"
+                return "I don't have enough information.\nSources:\n- URL: https://tds.s-anand.net/#/docker\n  Text: Docker vs Podman discussion"
 
 def parse_links(response_text):
     parts = response_text.split("Sources:")
