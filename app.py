@@ -84,14 +84,31 @@ def get_similar_context(query_embedding):
 async def ask_llm(question, context_list):
     context = "\n\n".join([f"From {url}:\n{content}" for _, content, url in context_list])
     prompt = f"""
-Answer the following question using only the provided context. If context is not enough, say "I don't have enough information."
+You are a teaching assistant for the Tools in Data Science course.
+
+You will be given:
+- a student question
+- and some related context (from course material and forum posts)
+
+Your job is to:
+- Answer the question strictly based on the context only
+- Do NOT make up facts
+- If the context is insufficient, say "I don't have enough information."
+- After the answer, include "Sources:" with URLs and brief explanation
+
+Format:
+{{
+  "answer": "...",
+  "links": [
+    {{ "url": "...", "text": "..." }},
+    ...
+  ]
+}}
 
 Context:
 {context}
 
 Question: {question}
-
-Provide an answer followed by a list of sources.
 """
 
     url = "https://aipipe.org/openai/v1/chat/completions"
@@ -110,11 +127,11 @@ Provide an answer followed by a list of sources.
 
     async with aiohttp.ClientSession() as session:
         async with session.post(url, headers=headers, json=payload) as response:
-            if response.status == 200:
+            try:
                 result = await response.json()
                 return result["choices"][0]["message"]["content"]
-            else:
-                raise HTTPException(status_code=response.status, detail="LLM API failed.")
+            except (KeyError, IndexError, TypeError):
+                return "I don't have enough information.\nSources: [\n{\"url\": \"https://tds.s-anand.net\", \"text\": \"Default fallback source\"}\n]"
 
 def parse_links(response_text):
     parts = response_text.split("Sources:")
@@ -144,11 +161,7 @@ async def query_virtual_ta(request: QueryRequest):
 
 @app.post("/", response_model=QueryResponse)
 async def query_virtual_ta_root(request: QueryRequest):
-    embedding = await get_embedding(request.question)
-    context = get_similar_context(embedding)
-    llm_response = await ask_llm(request.question, context)
-    parsed = parse_links(llm_response)
-    return parsed
+    return await query_virtual_ta(request)
 
 @app.get("/")
 def root():
